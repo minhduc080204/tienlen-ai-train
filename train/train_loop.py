@@ -1,6 +1,5 @@
 # train/train_loop.py
 
-import random
 import torch
 
 from env.tienlen_env import TienLenEnv
@@ -17,10 +16,46 @@ from core.action_executor import resolve_action
 from env.step_result import StepResult
 
 from bots.rule_bot import RuleBot
-from train.config import *
 from state.state_dim import STATE_DIM
+import argparse
+import train.config as config
+
+
+def parse_args():
+    parser = argparse.ArgumentParser("PPO Train Tiến Lên")
+
+    parser.add_argument("--episodes", type=int, default=config.MAX_EPISODES)
+    parser.add_argument("--batch-size", type=int, default=config.BATCH_SIZE)
+    parser.add_argument("--lr", type=float, default=config.LR)
+
+    parser.add_argument("--gamma", type=float, default=config.GAMMA)
+    parser.add_argument("--lam", type=float, default=config.LAMBDA)
+
+    parser.add_argument("--ppo-epochs", type=int, default=config.PPO_EPOCHS)
+
+    parser.add_argument("--save-every", type=int, default=config.SAVE_EVERY)
+    parser.add_argument("--eval-every", type=int, default=config.EVAL_EVERY)
+
+    parser.add_argument("--device", type=str, default="auto",
+                        choices=["auto", "cpu", "cuda"])
+
+    return parser.parse_args()
+
 
 def train():
+    args = parse_args()
+    MAX_EPISODES = args.episodes
+    BATCH_SIZE = args.batch_size
+    LR = args.lr
+    GAMMA = args.gamma
+    LAMBDA = args.lam
+    PPO_EPOCHS = args.ppo_epochs
+    SAVE_EVERY=args.save_every
+
+    NUM_PLAYERS=config.NUM_PLAYERS
+    MAX_TURNS_PER_EP=config.MAX_TURNS_PER_EP
+    AI_PLAYER_ID=config.AI_PLAYER_ID
+    
     print("🚀 Start PPO Training")
 
     # =========================
@@ -67,6 +102,9 @@ def train():
         while not done:
             turn_count += 1
             current_pid = env.state.current_player
+            if turn_count >= MAX_TURNS_PER_EP:
+                print(f"⚠️ Episode {episode} force stop (turn limit)")
+                break
 
             # =====================
             # AI TURN
@@ -186,7 +224,7 @@ def train():
         # =========================
         # 5️⃣ LOG
         # =========================
-        if episode % 50 == 0:
+        if episode % 1 == 0:
             win = state.winner == AI_PLAYER_ID
             print(
                 f"[Episode {episode}] "
@@ -207,139 +245,3 @@ def train():
 
 if __name__ == "__main__":
     train()
-
-# def train():
-#     AI_PLAYER_ID = 0
-
-#     env = TienLenEnv(num_players=NUM_PLAYERS)
-
-#     model = TienLenPolicy(
-#         state_dim=STATE_DIM,
-#         action_dim=len(ACTION_SPACE)
-#     )
-
-#     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
-
-#     agent = PPOAgent(
-#         model=model,
-#         optimizer=optimizer,
-#     )
-
-#     buffer = RolloutBuffer()
-#     rule_bot = RuleBot(player_id=1)
-
-#     print("🚀 Start PPO Training...")
-
-#     for episode in range(1, MAX_EPISODES + 1):
-
-#         state = env.reset()
-#         buffer.clear()
-
-#         if state.finished:
-#             continue
-
-#         done = False
-#         turn_count = 0
-
-#         while not done:
-#             turn_count += 1
-#             current_pid = env.state.current_player
-
-#             # ================= AI TURN =================
-#             if current_pid == AI_PLAYER_ID:
-#                 state = env.state
-                
-#                 player_hand = state.hands[AI_PLAYER_ID]
-
-#                 opponent_hands = [
-#                     h for i, h in enumerate(state["player_hands"])
-#                     if i != AI_PLAYER_ID
-#                 ]
-#                 current_trick = state["current_trick"]
-#                 num_players = state["num_players"]
-
-#                 state_vec = encode_state(
-#                     player_hand,
-#                     opponent_hands,
-#                     current_trick,
-#                     AI_PLAYER_ID,
-#                     num_players
-#                 )
-
-#                 action_mask = build_action_mask(
-#                     hand=env.state.hands[AI_PLAYER_ID],
-#                     current_trick=env.state.current_trick
-#                 )
-
-#                 action_id, logprob, value = agent.act(
-#                     state_vec,
-#                     action_mask
-#                 )
-
-#                 action_spec = ACTION_SPACE[action_id]
-#                 action_cards = action_spec.resolve(
-#                     env.state.hands[AI_PLAYER_ID]
-#                 )
-
-#             # ================= OPPONENT =================
-#             else:
-#                 action_cards = rule_bot.act(env.state)
-
-#             prev_state = env.state
-#             step_result = env.step(action_cards)
-
-#             reward = compute_reward(
-#                 prev_state=state,
-#                 new_state=step_result.state,
-#                 player_id=agent.player_id
-#             )
-
-#             state = step_result.state
-#             done = step_result.done
-
-
-#             # reward = compute_reward(
-#             #     prev_state=prev_state,
-#             #     new_state=step_result.state,
-#             #     player_id=AI_PLAYER_ID
-#             # )
-
-#             # if current_pid == AI_PLAYER_ID:
-#             #     buffer.add(
-#             #         state=state_vec,
-#             #         action=action_id,
-#             #         logprob=logprob,
-#             #         reward=reward,
-#             #         done=step_result.done,
-#             #         value=value,
-#             #         action_mask=action_mask
-#             #     )
-
-#             # done = step_result.done
-
-#         # ================= PPO UPDATE =================
-#         if len(buffer) > 0:
-#             advantages, returns = buffer.compute_gae(
-#                 gamma=GAMMA,
-#                 lam=LAMBDA
-#             )
-
-#             agent.update(
-#                 states=buffer.states,
-#                 actions=buffer.actions,
-#                 old_logprobs=buffer.logprobs,
-#                 returns=returns,
-#                 advantages=advantages,
-#                 action_masks=buffer.action_masks,
-#                 epochs=PPO_EPOCHS,
-#                 batch_size=BATCH_SIZE
-#             )
-
-#         if episode % 100 == 0:
-#             print(f"[Episode {episode}] Turns={turn_count}")
-
-#     print("✅ Training finished")
-
-
-# if __name__ == "__main__":
-#     train()

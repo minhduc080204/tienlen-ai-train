@@ -3,13 +3,14 @@
 # ======================
 NUM_PLAYERS = 4
 AI_PLAYER_ID = 0
+MAX_TURNS_PER_EP = 200  # hoặc 300
 
 # ======================
 # TRAINING
 # ======================
-MAX_EPISODES = 30_000      # ❌ 200k quá lớn cho Kaggle
-SAVE_EVERY = 1000
-EVAL_EVERY = 1000
+MAX_EPISODES = 3_000      # ❌ 200k quá lớn cho Kaggle
+SAVE_EVERY = 100
+EVAL_EVERY = 100
 
 # ======================
 # PPO

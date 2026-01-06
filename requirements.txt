@@ -1,6 +1,3 @@
-# Data Processing & Math
 numpy
 pandas
-
 pytest
-torch
