@@ -3,7 +3,7 @@
 # ======================
 NUM_PLAYERS = 4
 AI_PLAYER_ID = 0
-MAX_TURNS_PER_EP = 200  # hoặc 300
+MAX_TURNS_PER_EP = 120  # hoặc 300
 
 # ======================
 # TRAINING

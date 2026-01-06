@@ -1,16 +1,14 @@
 from core.rules import detect_move_type, MoveType
 
 # --- Terminal reward ---
-WIN_REWARD = 100.0
-LOSE_PENALTY = -50.0
+WIN_REWARD = 30.0
+LOSE_PENALTY = -30.0
 
-# --- Basic play ---
-PLAY_CARD_REWARD = 0.2        # khuyến khích đánh bài
-PASS_PENALTY = -0.1           # tránh pass vô tội vạ
+PLAY_CARD_REWARD = 0.05
+PASS_PENALTY = -0.2
 
-# --- Opponent near win ---
-OPPONENT_ONE_CARD_PENALTY = -10.0
-OPPONENT_ONE_CARD_GOOD_PLAY = +5.0
+OPPONENT_ONE_CARD_PENALTY = -5.0
+OPPONENT_ONE_CARD_GOOD_PLAY = +2.0
 
 # --- Cutting "2" (heo) ---
 GOOD_CUT_TWO = +8.0
@@ -66,8 +64,8 @@ def action_reward(
     # 3.2 ĐỐI THỦ CÒN 1 LÁ → PHẢI CHẶN
     # -----------------------------------------------------
     opponent_one_card = False
-    for p in prev_state.players:
-        if p.player_id != player_id and p.card_count() == 1:
+    for pid, hand in enumerate(prev_state.hands):
+        if pid != player_id and len(hand) == 1:
             opponent_one_card = True
             break
 
@@ -104,7 +102,7 @@ def action_reward(
     # -----------------------------------------------------
     # 3.4 QUẢN LÝ BÀI MẠNH CUỐI GAME
     # -----------------------------------------------------
-    remaining_cards = len(prev_state.players[player_id].hand)
+    remaining_cards = len(prev_state.hands[player_id])
 
     if remaining_cards <= 5:
         move_type = detect_move_type(action_cards)

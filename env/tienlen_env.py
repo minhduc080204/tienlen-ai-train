@@ -4,6 +4,8 @@ from core.starting_rules import find_starting_player
 from core.instant_win import is_six_pairs, is_five_double_straight
 from env.game_state import GameState
 from env.step_result import StepResult
+from env.reward import compute_reward
+import copy
 
 
 class TienLenEnv:
@@ -48,40 +50,45 @@ class TienLenEnv:
         player = state.current_player
         hand = state.hands[player]
 
+        # 🔴 COPY STATE TRƯỚC ACTION (CHO REWARD)
+        prev_state = copy.deepcopy(state)
+
         # =====================
         # PASS
         # =====================
         if not action_cards:
             if state.current_trick is None:
+                reward = -0.1
                 return StepResult(
                     state=state,
-                    reward=-0.1,
+                    reward=reward,
                     done=False,
                     info={"action": "INVALID_PASS"}
                 )
 
-
             next_player = (player + 1) % self.num_players
 
-            # Vòng mới (mọi người đều pass)
             if next_player == state.last_player:
                 state.current_trick = None
                 state.last_player = None
 
             state.current_player = next_player
 
+            reward = compute_reward(
+                action_cards=[],
+                prev_state=prev_state,
+                next_state=state,
+                done=False,
+                player_id=player,
+                player_rank=None
+            )
+
             return StepResult(
                 state=state,
-                reward=0.0,
+                reward=reward,
                 done=False,
                 info={"action": "PASS"}
             )
-
-        # =====================
-        # CHECK BÀI CÓ TRONG TAY
-        # =====================
-        for c in action_cards:
-            assert c in hand
 
         # =====================
         # CHECK HỢP LỆ
@@ -90,36 +97,47 @@ class TienLenEnv:
             assert can_beat(state.current_trick, action_cards)
 
         # =====================
-        # ĐÁNH BÀI
+        # REMOVE BÀI (THEO VALUE)
         # =====================
         for c in action_cards:
-            hand.remove(c)
+            for h in hand:
+                if h.rank == c.rank and h.suit == c.suit:
+                    hand.remove(h)
+                    break
+            else:
+                raise RuntimeError(
+                    f"❌ Card {c} not found in player {player}'s hand"
+                )
 
+        # cập nhật trick
         state.current_trick = action_cards
         state.last_player = player
 
         # =====================
-        # THẮNG
+        # CHECK WIN
         # =====================
-        if len(hand) == 0:
+        done = len(hand) == 0
+        if done:
             state.finished = True
             state.winner = player
-
-            return StepResult(
-                state=state,
-                reward=0.0,   # reward học tính ở Phase 5
-                done=True,
-                info={"winner": player}
-            )
+        else:
+            state.current_player = (player + 1) % self.num_players
 
         # =====================
-        # NEXT PLAYER
+        # REWARD
         # =====================
-        state.current_player = (player + 1) % self.num_players
+        reward = compute_reward(
+            action_cards=action_cards,
+            prev_state=prev_state,
+            next_state=state,
+            done=done,
+            player_id=player,
+            player_rank=1 if done else None
+        )
 
         return StepResult(
             state=state,
-            reward=0.0,
-            done=False,
-            info={}
+            reward=reward,
+            done=done,
+            info={"winner": player} if done else {}
         )

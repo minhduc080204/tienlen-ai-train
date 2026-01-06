@@ -10,7 +10,7 @@ from action.action_space import ACTION_SPACE
 from rl.agent import PPOAgent
 from rl.model import TienLenPolicy
 from rl.buffer import RolloutBuffer
-from rl.rewards import compute_reward
+from env.reward import compute_reward
 
 from core.action_executor import resolve_action
 from env.step_result import StepResult
@@ -19,7 +19,7 @@ from bots.rule_bot import RuleBot
 from state.state_dim import STATE_DIM
 import argparse
 import train.config as config
-
+from utils.logger import setup_logger
 
 def parse_args():
     parser = argparse.ArgumentParser("PPO Train Tiến Lên")
@@ -43,6 +43,11 @@ def parse_args():
 
 
 def train():
+    logger = setup_logger(
+        name="ppo_train",
+        log_dir="logs"
+    )
+
     args = parse_args()
     MAX_EPISODES = args.episodes
     BATCH_SIZE = args.batch_size
@@ -174,12 +179,7 @@ def train():
             # =====================
             step_result: StepResult = env.step(action_cards)
 
-            reward = compute_reward(
-                prev_state=state,
-                new_state=step_result.state,
-                player_id=AI_PLAYER_ID,
-                done=step_result.done
-            )
+            reward = step_result.reward
 
             # =====================
             # STORE ROLLOUT (AI ONLY)
@@ -231,6 +231,13 @@ def train():
                 f"Turns={turn_count} "
                 f"Win={win}"
             )
+            logger.info(
+                f"Episode={episode} "
+                f"Turns={turn_count} "
+                f"Win={win} "
+                f"TotalReward={reward:.3f}"
+            )
+
 
         # =========================
         # 6️⃣ SAVE CHECKPOINT
