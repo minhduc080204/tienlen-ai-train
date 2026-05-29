@@ -91,6 +91,14 @@ def train():
         else:
             phase = 3 # Shared Model: 4-way PPO update
 
+        # Entropy Decay: Giảm dần từ ENTROPY_COEF (0.05) xuống 0.01
+        decay_steps = config.SELF_PLAY_EPISODES
+        if episode <= decay_steps:
+            main_agent.entropy_coef = config.ENTROPY_COEF - (config.ENTROPY_COEF - 0.01) * (episode / decay_steps)
+        else:
+            main_agent.entropy_coef = 0.01
+
+
         # Thiết lập danh sách người chơi cho episode này
         episode_agents = [None] * config.NUM_PLAYERS
         episode_buffers = [RolloutBuffer() for _ in range(config.NUM_PLAYERS)]
@@ -228,7 +236,7 @@ def train():
             )
 
             main_agent.save(latest_path)
-            if avg_win_rate > best_win_rate and episode > config.WINDOW_SIZE:
+            if phase > 1 and avg_win_rate > best_win_rate and episode > config.WINDOW_SIZE:
                 best_win_rate = avg_win_rate
                 if best_win_rate >= config.WIN_RATE_THRESHOLD:
                     main_agent.save(best_path)

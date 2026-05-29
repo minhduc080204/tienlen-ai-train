@@ -3,29 +3,31 @@ from core.rules import detect_move_type, MoveType
 
 # ─── Terminal reward ─────────────────────────────────────────────────────────
 WIN_REWARD   = 30.0
+SECOND_REWARD = 10.0
+THIRD_REWARD  = -10.0
 LOSE_PENALTY = -30.0
 
 # ─── Step rewards ────────────────────────────────────────────────────────────
-PLAY_CARD_REWARD = 0.05
-PASS_PENALTY     = -0.2
+PLAY_CARD_REWARD = 0.0
+PASS_PENALTY     = 0.0
 
 # ─── Opponent pressure ───────────────────────────────────────────────────────
-OPPONENT_CRITICAL_PENALTY    = -8.0   # pass khi đối thủ còn 1 lá
-OPPONENT_DANGEROUS_PENALTY   = -5.0   # pass khi đối thủ còn 2 lá
-OPPONENT_DANGER_GOOD_PLAY    = +3.0   # đánh được khi đối thủ nguy hiểm
+OPPONENT_CRITICAL_PENALTY    = -2.0   # pass khi đối thủ còn 1 lá
+OPPONENT_DANGEROUS_PENALTY   = -1.0   # pass khi đối thủ còn 2 lá
+OPPONENT_DANGER_GOOD_PLAY    = +1.0   # đánh được khi đối thủ nguy hiểm
 
 # ─── Cutting 2 (heo) ─────────────────────────────────────────────────────────
-GOOD_CUT_TWO      = +8.0
-BAD_CUT_TWO       = -5.0
-CUT_TWO_URGENT    = +12.0   # chặt heo khi đối thủ còn ≤2 bài
+GOOD_CUT_TWO      = +3.0
+BAD_CUT_TWO       = -2.0
+CUT_TWO_URGENT    = +5.0   # chặt heo khi đối thủ còn ≤2 bài
 
 # ─── Power card management ───────────────────────────────────────────────────
-SAVE_POWER_CARD   = +2.0
-WASTE_POWER_CARD  = -3.0
+SAVE_POWER_CARD   = 0.0
+WASTE_POWER_CARD  = -1.0
 
 # ─── Efficiency bonus ────────────────────────────────────────────────────────
-LARGE_COMBO_BONUS  = +1.0    # thưởng khi đánh sảnh/đôi thông dài
-CLEAR_HAND_BONUS   = +0.5    # thưởng mỗi lá đánh khi ≤5 lá còn
+LARGE_COMBO_BONUS  = 0.0    # thưởng khi đánh sảnh/đôi thông dài
+CLEAR_HAND_BONUS   = 0.0    # thưởng mỗi lá đánh khi ≤5 lá còn
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -34,6 +36,10 @@ CLEAR_HAND_BONUS   = +0.5    # thưởng mỗi lá đánh khi ≤5 lá còn
 def terminal_reward(player_rank: int) -> float:
     if player_rank == 1:
         return WIN_REWARD
+    elif player_rank == 2:
+        return SECOND_REWARD
+    elif player_rank == 3:
+        return THIRD_REWARD
     return LOSE_PENALTY
 
 
@@ -64,6 +70,13 @@ def action_reward(
         reward += PASS_PENALTY
     else:
         reward += PLAY_CARD_REWARD
+        move_type_basic = detect_move_type(action_cards)
+        if move_type_basic == MoveType.PAIR:
+            reward += 0.2
+        elif move_type_basic == MoveType.TRIPLE:
+            reward += 0.4
+        elif move_type_basic == MoveType.STRAIGHT:
+            reward += 0.1 * len(action_cards)
 
     # ─── 2.2 Đối thủ nguy hiểm → phải chặn ─────────────────────────────
     if min_opponent_count <= 1:

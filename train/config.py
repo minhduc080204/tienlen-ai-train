@@ -26,14 +26,14 @@ GAMMA = 0.99
 LAMBDA = 0.95
 
 PPO_EPOCHS = 4             # Số lần lặp lại update trên mỗi batch
-BATCH_SIZE = 1024          # 🔥 Tăng để tận dụng tối đa GPU T4
-LR = 3e-4                  # Tốc độ học tối ưu cho PPO
+BATCH_SIZE = 2048          # 🔥 Tăng để tận dụng tối đa GPU T4
+LR = 1e-4                  # Tốc độ học tối ưu cho PPO
 
 # ======================
 # STABILITY
 # ======================
 MAX_TURNS_PER_GAME = 200   # Tránh ván bài bị treo quá lâu
-ENTROPY_COEF = 0.01        # Khuyến khích khám phá (Exploration)
+ENTROPY_COEF = 0.05        # Khuyến khích khám phá (Exploration)
 VALUE_COEF = 0.5           # Trọng số của Value Loss
 
 LOG_TURN = False           # Tắt log chi tiết trên Kaggle để tránh lag
