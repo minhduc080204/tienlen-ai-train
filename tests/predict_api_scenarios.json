@@ -1,0 +1,146 @@
+{
+  "endpoint": "POST /predict",
+  "notes": [
+    "Các expected dưới đây là expected theo luật API/luật game, không khóa cứng một action_id cụ thể (trừ case PASS bắt buộc).",
+    "Nếu cần snapshot đúng tuyệt đối theo checkpoint hiện tại, chạy lại các request này và lưu response thực tế."
+  ],
+  "scenarios": [
+    {
+      "name": "open_turn_greedy",
+      "description": "Đầu vòng, model phải chọn một nước đi hợp lệ (không được PASS).",
+      "request": {
+        "hand": [
+          { "rank": 5, "suit": 1 },
+          { "rank": 5, "suit": 2 },
+          { "rank": 7, "suit": 1 },
+          { "rank": 9, "suit": 4 }
+        ],
+        "opponent_counts": [10, 8, 6],
+        "current_trick": [],
+        "player_id": 0,
+        "num_players": 4,
+        "discard_pile": [],
+        "inference_mode": "greedy",
+        "temperature": 1.0,
+        "top_k_actions": 3
+      },
+      "expected": {
+        "status_code": 200,
+        "assertions": [
+          "response.action_cards.length >= 1",
+          "response.message startsWith 'Play '",
+          "response.action_confidence >= 0 and <= 1",
+          "response.top_actions.length >= 1 and <= 3",
+          "response.top_actions[0].probability >= response.top_actions[last].probability"
+        ]
+      }
+    },
+    {
+      "name": "must_pass_on_high_two",
+      "description": "Không có bài nào chặn được 2♥, model bắt buộc PASS.",
+      "request": {
+        "hand": [
+          { "rank": 3, "suit": 1 },
+          { "rank": 4, "suit": 2 },
+          { "rank": 6, "suit": 3 }
+        ],
+        "opponent_counts": [5, 5, 5],
+        "current_trick": [
+          { "rank": 15, "suit": 4 }
+        ],
+        "player_id": 1,
+        "num_players": 4,
+        "discard_pile": [],
+        "inference_mode": "greedy",
+        "temperature": 1.0,
+        "top_k_actions": 3
+      },
+      "expected": {
+        "status_code": 200,
+        "exact": {
+          "action_id": 0,
+          "action_cards": [],
+          "message": "Pass"
+        },
+        "assertions": [
+          "response.top_actions[0].action_id == 0"
+        ]
+      }
+    },
+    {
+      "name": "single_response_with_current_trick",
+      "description": "Có bài trên bàn, model chọn PASS hoặc đánh single hợp lệ để chặn.",
+      "request": {
+        "hand": [
+          { "rank": 8, "suit": 1 },
+          { "rank": 10, "suit": 2 },
+          { "rank": 12, "suit": 4 }
+        ],
+        "opponent_counts": [7, 4],
+        "current_trick": [
+          { "rank": 9, "suit": 1 }
+        ],
+        "player_id": 2,
+        "num_players": 3,
+        "discard_pile": [
+          { "rank": 3, "suit": 1 },
+          { "rank": 3, "suit": 2 }
+        ],
+        "inference_mode": "greedy",
+        "temperature": 1.0,
+        "top_k_actions": 3
+      },
+      "expected": {
+        "status_code": 200,
+        "assertions": [
+          "response.message == 'Pass' OR response.message startsWith 'Play '",
+          "if response.action_cards.length == 1 then response.action_cards[0].rank in [10, 12]",
+          "response.top_actions.length >= 1 and <= 3"
+        ]
+      }
+    },
+    {
+      "name": "invalid_opponent_counts_length",
+      "description": "Sai số lượng opponent_counts phải trả về 400.",
+      "request": {
+        "hand": [
+          { "rank": 6, "suit": 1 },
+          { "rank": 6, "suit": 2 }
+        ],
+        "opponent_counts": [9],
+        "current_trick": [],
+        "player_id": 0,
+        "num_players": 4,
+        "discard_pile": [],
+        "inference_mode": "greedy",
+        "temperature": 1.0,
+        "top_k_actions": 3
+      },
+      "expected": {
+        "status_code": 400,
+        "detail_contains": "opponent_counts must have length 3"
+      }
+    },
+    {
+      "name": "invalid_player_id",
+      "description": "player_id vượt phạm vi phải trả về 400.",
+      "request": {
+        "hand": [
+          { "rank": 11, "suit": 3 }
+        ],
+        "opponent_counts": [8, 8],
+        "current_trick": [],
+        "player_id": 3,
+        "num_players": 3,
+        "discard_pile": [],
+        "inference_mode": "sample",
+        "temperature": 0.9,
+        "top_k_actions": 2
+      },
+      "expected": {
+        "status_code": 400,
+        "detail_contains": "player_id must be in [0, 2]"
+      }
+    }
+  ]
+}
