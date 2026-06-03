@@ -75,13 +75,30 @@ python -m train.train_loop --episodes 500 --device cpu
 ### Longer run (GPU)
 
 ```bash
-python -m train.train_loop --episodes 100000 --device cuda
+python -m train.train_loop --episodes 65000 --device cuda
 ```
 
-### Initialize from an existing checkpoint
+### Initialize from an existing checkpoint (bỏ qua warmup tự động)
 
 ```bash
-python -m train.train_loop --episodes 3000 --init-model-path checkpoints/latest.pt
+python -m train.train_loop --episodes 50000 --init-model-path checkpoints/latest.pt
+```
+
+### Override hyperparameters qua CLI (không cần sửa code)
+
+```bash
+# Ví dụ: tăng warmup, giảm LR, tùy chỉnh entropy
+python -m train.train_loop \
+  --episodes 65000 \
+  --device cuda \
+  --warmup-episodes 15000 \
+  --self-play-episodes 42000 \
+  --shared-model-start 48000 \
+  --lr 8e-5 \
+  --entropy-coef 0.08 \
+  --entropy-min 0.02 \
+  --batch-size 2048 \
+  --opponent-pool-size 5
 ```
 
 ### Alternative shared-model training entrypoint

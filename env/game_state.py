@@ -13,3 +13,5 @@ class GameState:
     finished: bool = False
     winner: int | None = None
     discard_pile: list[Card] = field(default_factory=list)
+    finished_order: list[int] = field(default_factory=list)  # Thứ tự finish: [player_id, ...] — rank = index+1
+

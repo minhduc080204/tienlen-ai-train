@@ -2,14 +2,14 @@
 from core.rules import detect_move_type, MoveType
 
 # ─── Terminal reward ─────────────────────────────────────────────────────────
-WIN_REWARD   = 30.0
+WIN_REWARD    = 30.0
 SECOND_REWARD = 10.0
 THIRD_REWARD  = -10.0
-LOSE_PENALTY = -30.0
+LOSE_PENALTY  = -30.0
 
 # ─── Step rewards ────────────────────────────────────────────────────────────
-PLAY_CARD_REWARD = 0.0
-PASS_PENALTY     = 0.0
+PLAY_CARD_REWARD = 0.1     # Thưởng nhỏ mỗi lần đánh thành công
+PASS_PENALTY     = -0.05   # Phạt nhẹ khi pass (khuyến khích đánh)
 
 # ─── Opponent pressure ───────────────────────────────────────────────────────
 OPPONENT_CRITICAL_PENALTY    = -2.0   # pass khi đối thủ còn 1 lá
@@ -22,12 +22,15 @@ BAD_CUT_TWO       = -2.0
 CUT_TWO_URGENT    = +5.0   # chặt heo khi đối thủ còn ≤2 bài
 
 # ─── Power card management ───────────────────────────────────────────────────
-SAVE_POWER_CARD   = 0.0
+SAVE_POWER_CARD   = +0.1   # thưởng nhỏ khi đánh bài nhỏ (tiết kiệm bài mạnh)
 WASTE_POWER_CARD  = -1.0
 
 # ─── Efficiency bonus ────────────────────────────────────────────────────────
-LARGE_COMBO_BONUS  = 0.0    # thưởng khi đánh sảnh/đôi thông dài
-CLEAR_HAND_BONUS   = 0.0    # thưởng mỗi lá đánh khi ≤5 lá còn
+LARGE_COMBO_BONUS  = 0.5   # thưởng khi đánh sảnh/đôi thông dài
+CLEAR_HAND_BONUS   = 0.3   # thưởng mỗi lá đánh khi ≤5 lá còn
+
+# ─── Hand reduction bonus ────────────────────────────────────────────────────
+HAND_REDUCTION_SCALE = 0.5  # Tỉ lệ thưởng dựa trên % bài xả ra
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -77,6 +80,11 @@ def action_reward(
             reward += 0.4
         elif move_type_basic == MoveType.STRAIGHT:
             reward += 0.1 * len(action_cards)
+
+        # ─── 2.1b: Hand reduction bonus — tỉ lệ % bài xả đi ────────────
+        cards_played = len(action_cards)
+        hand_reduction_ratio = cards_played / max(remaining, 1)
+        reward += hand_reduction_ratio * HAND_REDUCTION_SCALE
 
     # ─── 2.2 Đối thủ nguy hiểm → phải chặn ─────────────────────────────
     if min_opponent_count <= 1:
@@ -168,7 +176,8 @@ def compute_reward(
         player_id=player_id
     )
 
-    if done:
+    if done and player_rank is not None:
         reward += terminal_reward(player_rank)
 
     return reward
+

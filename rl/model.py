@@ -27,13 +27,14 @@ class TienLenPolicy(nn.Module):
     Actor-Critic network cho PPO.
 
     Architecture:
-        Input (STATE_DIM=183)
-        → FC(183, 512) + LayerNorm + ReLU + Dropout(0.1)
-        → ResidualBlock(512)
-        → ResidualBlock(512)
-        → FC(512, 256) + LayerNorm + ReLU
-        ↗ policy_head: FC(256, action_dim)   [logits]
-        ↘ value_head:  FC(256, 1)            [state value]
+        Input (STATE_DIM=235)
+        → FC(235, 512) + LayerNorm + ReLU + Dropout(0.1)
+        → ResidualBlock(512, dropout=0.10)
+        → ResidualBlock(512, dropout=0.07)
+        → ResidualBlock(512, dropout=0.05)   ← mới thêm
+        → FC(512, 384) + LayerNorm + ReLU    ← tăng từ 256→384
+        ↗ policy_head: FC(384, action_dim)   [logits]
+        ↘ value_head:  FC(384, 1)            [state value]
     """
 
     def __init__(self, state_dim: int, action_dim: int, dropout: float = 0.1):
@@ -47,18 +48,19 @@ class TienLenPolicy(nn.Module):
             nn.Dropout(dropout),
         )
 
-        self.res1 = ResidualBlock(512, dropout)
-        self.res2 = ResidualBlock(512, dropout)
+        self.res1 = ResidualBlock(512, dropout=0.10)
+        self.res2 = ResidualBlock(512, dropout=0.07)
+        self.res3 = ResidualBlock(512, dropout=0.05)  # thêm layer sâu hơn
 
         self.bottleneck = nn.Sequential(
-            nn.Linear(512, 256),
-            nn.LayerNorm(256),
+            nn.Linear(512, 384),   # tăng từ 256 → 384
+            nn.LayerNorm(384),
             nn.ReLU(),
         )
 
         # ── Heads ─────────────────────────────────────────────────────────
-        self.policy_head = nn.Linear(256, action_dim)
-        self.value_head  = nn.Linear(256, 1)
+        self.policy_head = nn.Linear(384, action_dim)
+        self.value_head  = nn.Linear(384, 1)
 
         # ── Weight init ───────────────────────────────────────────────────
         self._init_weights()
@@ -73,5 +75,7 @@ class TienLenPolicy(nn.Module):
         x = self.input_layer(state)
         x = self.res1(x)
         x = self.res2(x)
+        x = self.res3(x)
         x = self.bottleneck(x)
         return self.policy_head(x), self.value_head(x)
+

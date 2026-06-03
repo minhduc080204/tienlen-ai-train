@@ -29,6 +29,7 @@ class TienLenEnv:
                     finished=True,
                     winner=i,
                     discard_pile=[],
+                    finished_order=[i],
                 )
                 return self.state
 
@@ -42,8 +43,21 @@ class TienLenEnv:
             finished=False,
             winner=None,
             discard_pile=[],
+            finished_order=[],
         )
         return self.state
+
+    def _next_active_player(self, from_player: int) -> int:
+        """Tìm player tiếp theo còn bài (chưa về)."""
+        for offset in range(1, self.num_players + 1):
+            candidate = (from_player + offset) % self.num_players
+            if len(self.state.hands[candidate]) > 0:
+                return candidate
+        return from_player  # fallback (không nên xảy ra)
+
+    def _active_players(self) -> list[int]:
+        """Danh sách player còn bài."""
+        return [i for i in range(self.num_players) if len(self.state.hands[i]) > 0]
 
     def step(self, action_cards: list) -> StepResult:
         state = self.state
@@ -62,20 +76,24 @@ class TienLenEnv:
         if not action_cards:
             if state.current_trick is None:
                 # không được pass khi không có trick trước
-                reward = -0.1
                 return StepResult(
                     state=state,
-                    reward=-100.0, 
+                    reward=-100.0,
                     done=True,
                     info={"action": "INVALID_PASS_TERMINATED"}
                 )
 
-            next_player = (player + 1) % self.num_players
+            # Thêm player vào danh sách passed (nếu chưa có)
+            if player not in state.passed_players:
+                state.passed_players.append(player)
+
+            next_player = self._next_active_player(player)
 
             # Nếu vòng quanh về tới người đánh trick → clear trick
             if next_player == state.last_player:
                 state.current_trick = None
                 state.last_player = None
+                state.passed_players = []
 
             state.current_player = next_player
 
@@ -117,19 +135,41 @@ class TienLenEnv:
         # Tích lũy vào discard pile
         state.discard_pile.extend(action_cards)
 
-        # Cập nhật trick
+        # Cập nhật trick và reset passed list
         state.current_trick = action_cards
         state.last_player = player
+        state.passed_players = []
 
         # =====================
-        # CHECK WIN
+        # CHECK WIN / RANK
         # =====================
-        done = len(hand) == 0
-        if done:
-            state.finished = True
-            state.winner = player
+        player_done = len(hand) == 0
+        player_rank = None
+        game_over = False
+
+        if player_done:
+            # Ghi nhận thứ tự về bài
+            state.finished_order.append(player)
+            player_rank = len(state.finished_order)  # rank 1, 2, 3...
+
+            active_remaining = self._active_players()
+
+            if len(active_remaining) <= 1:
+                # Chỉ còn 0 hoặc 1 người — game kết thúc
+                if len(active_remaining) == 1:
+                    # Người cuối cùng = rank cuối (rank 4 với 4 player)
+                    last_player = active_remaining[0]
+                    state.finished_order.append(last_player)
+
+                state.finished = True
+                state.winner = state.finished_order[0]  # rank 1 = winner
+                game_over = True
+            else:
+                # Game chưa kết thúc — chuyển sang player tiếp theo còn bài
+                state.current_player = self._next_active_player(player)
+
         else:
-            state.current_player = (player + 1) % self.num_players
+            state.current_player = self._next_active_player(player)
 
         # =====================
         # REWARD
@@ -138,14 +178,16 @@ class TienLenEnv:
             action_cards=action_cards,
             prev_state=prev_state,
             next_state=state,
-            done=done,
+            done=player_done,
             player_id=player,
-            player_rank=1 if done else None
+            player_rank=player_rank
         )
 
         return StepResult(
             state=state,
             reward=reward,
-            done=done,
-            info={"winner": player} if done else {}
+            done=game_over,
+            info={"rank": player_rank, "winner": state.winner} if game_over else
+                 {"rank": player_rank} if player_done else {}
         )
+
