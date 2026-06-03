@@ -165,6 +165,8 @@ def train():
     # 4. Tracking win rate
     win_history = deque(maxlen=config.WINDOW_SIZE)
     best_win_rate = 0.0
+    update_count = 0          # Đếm số lần model thực sự được update
+    total_buffer_steps = 0    # Tổng số steps tích lũy (debug)
 
     env = TienLenEnv(num_players=config.NUM_PLAYERS)
 
@@ -261,12 +263,15 @@ def train():
                 # 5. Store Experience — chỉ lưu Player 0
                 #    (Tránh gradient conflict từ nhiều player cùng update shared weights)
                 if curr_pid == 0:
+                    # FIX: Dùng player_done (hết bài) thay vì game_over (toàn bộ game kết thúc)
+                    # Để GAE không bootstrap V(s_next) sau khi P0 đã hết bài
+                    p0_player_done = (len(step_res.state.hands[0]) == 0)
                     episode_buffers[curr_pid].add(
                         state=state_vec,
                         action=action_id,
                         logprob=logprob,
                         reward=step_res.reward,
-                        done=step_res.done,
+                        done=p0_player_done,   # ← đúng: True khi P0 hết bài
                         value=val,
                         action_mask=mask
                     )
@@ -292,23 +297,19 @@ def train():
 
         # Terminal Reward & GAE — chỉ cho Player 0
         if len(episode_buffers[0]) > 0:
-            # Lấy rank của Player 0
-            p0_rank = None
-            if 0 in state.finished_order:
-                p0_rank = state.finished_order.index(0) + 1
-            elif winner == 0:
-                p0_rank = 1
-            # Nếu game kết thúc do MAX_TURNS mà P0 chưa về → rank cuối
-            if p0_rank is None and done:
-                p0_rank = config.NUM_PLAYERS
+            # FIX: env.step() đã cộng rank-based terminal reward vào step reward khi player_done=True
+            # Chỉ cần bổ sung penalty cho rank 4 (P0 không về được — không có terminal từ env)
+            p0_finished = 0 in state.finished_order
+            if not p0_finished:
+                # Player 0 thua hoàn toàn (rank cuối) — thêm LOSE_PENALTY thủ công
+                episode_buffers[0].rewards[-1] += -30.0
 
-            final_reward = 30.0 if winner == 0 else -30.0
-            episode_buffers[0].rewards[-1] += final_reward
             adv, ret = episode_buffers[0].compute_gae(config.GAMMA, config.LAMBDA)
             cumulative_buffer.extend(episode_buffers[0], adv, ret)
 
         # ── MODEL UPDATE ──────────────────────────────────────────────────
         last_losses = {"policy_loss": 0, "value_loss": 0, "entropy_loss": 0}
+        total_buffer_steps += len(episode_buffers[0])
         if len(cumulative_buffer) >= config.BATCH_SIZE:
             last_losses = main_agent.update(
                 states=cumulative_buffer.states,
@@ -321,6 +322,7 @@ def train():
                 batch_size=config.BATCH_SIZE
             )
             cumulative_buffer.clear()
+            update_count += 1
             if device.type == "cuda":
                 torch.cuda.empty_cache()
 
@@ -333,10 +335,20 @@ def train():
             summary = tracker.get_summary(last_n=20)
             avg_win_rate = summary["win_rate"]
 
+            # ⚠️ Cảnh báo nếu model chưa update lần nào sau 200 ep
+            stall_warning = ""
+            if update_count == 0 and episode >= 200:
+                expected_updates = total_buffer_steps // config.BATCH_SIZE
+                stall_warning = (
+                    f" ⚠️ NO UPDATE YET! buf={len(cumulative_buffer)}/{config.BATCH_SIZE} "
+                    f"(need {config.BATCH_SIZE - len(cumulative_buffer)} more steps)"
+                )
+
             print(
                 f"Ep {episode} [{phase}] | WR: {avg_win_rate:.2f} | Best: {best_win_rate:.2f} "
                 f"| Rew: {summary['avg_reward']:.1f} | Ent: {main_agent.entropy_coef:.4f} "
-                f"| Pool: {len(opponent_pool)}"
+                f"| Updates: {update_count} | Buf: {len(cumulative_buffer)}/{config.BATCH_SIZE}"
+                f"{stall_warning}"
             )
 
             # Save CSV

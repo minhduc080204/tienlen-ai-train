@@ -28,7 +28,8 @@ GAMMA = 0.99
 LAMBDA = 0.95
 
 PPO_EPOCHS = 4             # Số lần lặp lại update trên mỗi batch
-BATCH_SIZE = 2048          # 🔥 Tăng để tận dụng tối đa GPU T4
+BATCH_SIZE = 4096          # 🔥 Tăng lên 4096: tránh Kaggle timeout (Run 4 bị cắt ở 60K)
+                           #    Batch lớn → ít update hơn/ep → GPU time ổn định hơn
 LR = 8e-5                  # Nhỏ hơn để ổn định hơn (từ 1e-4)
 
 # ======================
