@@ -72,7 +72,6 @@ def train():
     )
     
     # 2. Tracking win rate
-    win_history = deque(maxlen=config.WINDOW_SIZE)
     best_win_rate = 0.0
     
     env = TienLenEnv(num_players=config.NUM_PLAYERS)
@@ -185,7 +184,6 @@ def train():
 
         # --- END OF EPISODE ---
         winner = state.winner
-        win_history.append(1 if winner == 0 else 0)
         
         # Record episode metrics
         tracker.record_episode(episode, winner, ep_reward_0, turn_count)
@@ -217,7 +215,7 @@ def train():
 
         # --- LOGGING ---
         if episode % 20 == 0:
-            summary = tracker.get_summary(last_n=20)
+            summary = tracker.get_summary(last_n=config.WINDOW_SIZE)
             avg_win_rate = summary["win_rate"]
             
             print(f"Ep {episode} [{phase}] | WR: {avg_win_rate:.2f} | Best WR: {best_win_rate:.2f} | Rew: {summary['avg_reward']:.1f}")

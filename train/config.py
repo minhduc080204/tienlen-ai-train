@@ -8,9 +8,9 @@ MAX_TURNS_PER_EP = 120  # giới hạn số lượt mỗi ván
 # ======================
 # TRAINING PHASES (Scaled for Kaggle T4)
 # ======================
-WARMUP_EPISODES = 10000      # Giai đoạn 1: vs RuleBot (AI học luật cơ bản)
-SELF_PLAY_EPISODES = 40000   # Giai đoạn 2: vs Frozen Model (AI học chiến thuật)
-SHARED_MODEL_START = 50000   # Giai đoạn 3: 4-way Shared Model (Hội tụ nâng cao)
+WARMUP_EPISODES = 0      # Giai đoạn 1: vs RuleBot (AI học luật cơ bản)
+SELF_PLAY_EPISODES = 25000   # Giai đoạn 2: vs Frozen Model (AI học chiến thuật)
+SHARED_MODEL_START = 45000   # Giai đoạn 3: 4-way Shared Model (Hội tụ nâng cao)
 
 # ======================
 # SELF-PLAY CONFIG
