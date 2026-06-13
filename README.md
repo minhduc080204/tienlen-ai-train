@@ -90,6 +90,16 @@ python -m train.train_loop --episodes 3000 --init-model-path checkpoints/latest.
 python -m train.train_loop_share_model --episodes 5000 --device auto
 ```
 
+### Evaluation
+
+```bash
+python train/evaluate.py --models checkpoints/best_agent.pt --episodes 1000
+```
+
+```bash
+!python -m train.evaluate --models /kaggle/input/<ten-dataset-cua-ban>/latest1.pt /kaggle/input/<ten-dataset-cua-ban>/best_model1.pt --episodes 300
+```
+
 ## Run Inference API
 
 Start the FastAPI server:
